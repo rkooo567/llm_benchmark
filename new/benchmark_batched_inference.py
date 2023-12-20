@@ -41,13 +41,14 @@ def parse_args():
     parser.add_argument('--framework',
                         required=True,
                         type=list_of_strings,
-                        default='vllm,mii')
+                        default='vllm')
     parser.add_argument("-tp",
                         "--tensor_parallel",
                         type=int,
                         help="Tensor parallelism",
                         default='1')
-    parser.add_argument('--model', type=str, required=True, help="path to the model")
+    parser.add_argument('--model', type=str, required=True, help="path to the model", default='meta-llama/Llama-2-70b-chat-hf')
+    parser.add_argument('--use-ray-compiled-dag', action='store_true')
 
     args = parser.parse_args()
     return args
@@ -161,14 +162,14 @@ def benchmark_mii(model, tensor_parallel, num_queries, warmup, prompt_lengths, m
     return benchmarks
 
 
-def benchmark_vllm(model, tensor_parallel, num_queries, warmup, prompt_lengths, max_new_tokens):
+def benchmark_vllm(model, tensor_parallel, num_queries, warmup, prompt_lengths, max_new_tokens, use_ray_compiled_dag):
     from vllm import LLM, SamplingParams
     from vllm.model_executor.parallel_utils.parallel_state import destroy_model_parallel
 
 
     # Create an LLM.
     start = time.time()
-    llm = LLM(model=model, tensor_parallel_size=tensor_parallel)
+    llm = LLM(model=model, tensor_parallel_size=tensor_parallel, use_ray_compiled_dag=use_ray_compiled_dag)
     print('took ' + "{:.2f}".format(time.time()-start) + " seconds to start llm engine")
 
     # Create a sampling params object.
@@ -308,7 +309,8 @@ if __name__ == "__main__":
                 num_queries=args.num_queries,
                 warmup=args.warmup,
                 prompt_lengths=args.prompt_length,
-                max_new_tokens=args.max_new_tokens)
+                max_new_tokens=args.max_new_tokens,
+                use_ray_compiled_dag=args.use_ray_compiled_dag)
 
     if 'trtllm' in args.framework:
         benchmarks += benchmark_trtllm(
